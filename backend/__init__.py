@@ -1,1 +1,1 @@
-"""Backend package for hardening feature validation."""
+"""Backend package for AllSlate."""

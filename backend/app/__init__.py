@@ -1,1 +1,1 @@
-"""Application package."""
+"""Application package for AllSlate backend."""
