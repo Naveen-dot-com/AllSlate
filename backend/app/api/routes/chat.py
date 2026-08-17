@@ -12,6 +12,7 @@ from backend.app.rag.graph import RagChatGraph
 from backend.app.rag.retriever import RetrievedChunk
 from backend.app.services.conversation_service import ConversationService
 from backend.app.services.message_service import MessageService
+from backend.app.api.routes.conversation_settings import get_settings_service
 
 router = APIRouter(prefix="/api/v1/projects", tags=["chat"])
 
@@ -60,6 +61,7 @@ async def list_messages(project_id: str, conversation_id: str) -> List[Dict[str,
             "failure_reason": m.failure_reason,
             "is_grounded": m.is_grounded,
             "created_at": m.created_at,
+            "effective_settings_snapshot": m.effective_settings_snapshot,
             "citations": [
                 {
                     "document_id": c.document_id,
@@ -82,6 +84,12 @@ async def ask(project_id: str, conversation_id: str, body: AskRequest) -> Stream
     _messages.append_user_message(conversation_id, body.question)
     assistant_message = _messages.append_assistant_message(conversation_id)
 
+    # Settings are resolved exactly once, at submission time, and captured as a
+    # detached snapshot: a later mid-flight settings change can never affect
+    # this in-progress answer (FR-013), and the snapshot is preserved even if
+    # the conversation's live settings later change (FR-014).
+    settings_snapshot = get_settings_service().snapshot(conversation_id)
+
     async def event_stream() -> AsyncIterator[str]:
         candidates: List[RetrievedChunk] = []
 
@@ -91,7 +99,9 @@ async def ask(project_id: str, conversation_id: str, body: AskRequest) -> Stream
         yield _sse_event("phase", {"phase": "retrieving"})
         yield _sse_event("phase", {"phase": "generating"})
 
-        result = _graph.ask(project_id, body.question, candidates, on_phase=on_phase)
+        result = _graph.ask(
+            project_id, body.question, candidates, settings=settings_snapshot, on_phase=on_phase
+        )
 
         if result.status == MessageStatus.FAILED:
             assistant_message.status = MessageStatus.FAILED
@@ -106,6 +116,12 @@ async def ask(project_id: str, conversation_id: str, body: AskRequest) -> Stream
         assistant_message.content = result.content
         assistant_message.is_grounded = result.is_grounded
         assistant_message.citations = result.citations
+        assistant_message.effective_settings_snapshot = {
+            "web_search_enabled": settings_snapshot.web_search_enabled,
+            "creativity_level": settings_snapshot.creativity_level,
+            "retrieval_top_k": settings_snapshot.retrieval_top_k,
+            "included_document_types": settings_snapshot.included_document_types,
+        }
 
         yield _sse_event(
             "complete",

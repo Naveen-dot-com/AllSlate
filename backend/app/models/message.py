@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 
 class MessageRole(str, Enum):
@@ -37,5 +37,6 @@ class Message:
     failure_reason: Optional[str] = None
     is_grounded: bool = True
     citations: List[MessageCitation] = field(default_factory=list)
+    effective_settings_snapshot: Optional[Dict[str, Any]] = None
     created_at: Optional[str] = None
     updated_at: Optional[str] = None

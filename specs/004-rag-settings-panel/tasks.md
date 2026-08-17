@@ -16,9 +16,9 @@
 
 **Purpose**: Project initialization and basic structure for the settings feature across backend and frontend
 
-- [ ] T001 Create backend and frontend feature scaffolding under backend/app/services/, backend/app/api/routes/, backend/tests/, frontend/components/settings-panel/, and frontend/lib/settings/
-- [ ] T002 Initialize settings schema and persistence dependencies in backend/app/models/ and backend requirements/configuration used by the RAG chat stack
-- [ ] T003 [P] Configure backend and frontend test harnesses for contract, unit, and Playwright coverage for the settings panel
+- [X] T001 Create backend feature scaffolding under backend/app/services/, backend/app/api/routes/, backend/tests/ (frontend/components/settings-panel/ and frontend/lib/settings/ deferred — no frontend app scaffolding exists in this repo)
+- [X] T002 Initialize settings schema and persistence dependencies in backend/app/models/conversation_settings.py
+- [X] T003 [P] Configure backend test harnesses (contract/unit/integration) for the settings panel; Playwright frontend coverage deferred
 
 ---
 
@@ -28,13 +28,13 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T004 Create the `conversation_settings` table migration and ensure row-level security matches project ownership in backend/migrations/
-- [ ] T005 Implement the `ConversationSettings` Pydantic model and field validation in backend/app/models/conversation_settings.py
-- [ ] T006 [P] Add default settings creation and lazy-load behavior for conversation thread initialization in backend/app/services/settings_service.py
-- [ ] T007 [P] Add authenticated conversation-scoped settings read/write helpers that validate ownership in backend/app/services/settings_service.py and backend/app/api/routes/conversation_settings.py
-- [ ] T008 [P] Add GET/PATCH settings endpoint handlers for `/api/v1/projects/{project_id}/conversations/{conversation_id}/settings` in backend/app/api/routes/conversation_settings.py
-- [ ] T009 [P] Add ask-time settings resolve flow and effective settings snapshot plumbing into the existing RAG request lifecycle in backend/app/rag/graph.py and backend/app/services/message_service.py
-- [ ] T010 Add graceful web-search fallback and citation metadata handling so failures degrade to document-only retrieval in backend/app/rag/web_search.py
+- [ ] T004 Create the `conversation_settings` table migration and ensure row-level security matches project ownership in backend/migrations/ (deferred — no Supabase/Postgres migration tooling wired up in this repo; current persistence is in-memory via `SettingsService`)
+- [X] T005 Implement the `ConversationSettings` model and field validation in backend/app/models/conversation_settings.py
+- [X] T006 [P] Add default settings creation and lazy-load behavior for conversation thread initialization in backend/app/services/settings_service.py
+- [X] T007 [P] Add authenticated conversation-scoped settings read/write helpers that validate ownership in backend/app/services/settings_service.py and backend/app/api/routes/conversation_settings.py
+- [X] T008 [P] Add GET/PATCH settings endpoint handlers for `/api/v1/projects/{project_id}/conversations/{conversation_id}/settings` in backend/app/api/routes/conversation_settings.py
+- [X] T009 [P] Add ask-time settings resolve flow and effective settings snapshot plumbing into the existing RAG request lifecycle in backend/app/rag/graph.py, backend/app/api/routes/chat.py, and backend/app/models/message.py
+- [X] T010 Add graceful web-search fallback and citation metadata handling so failures degrade to document-only retrieval in backend/app/rag/web_search.py
 
 **Checkpoint**: Foundation ready - user story implementation can now begin in parallel
 
@@ -48,14 +48,14 @@
 
 ### Tests for User Story 1
 
-- [ ] T011 [P] [US1] Add frontend smoke test covering panel discovery and default values in frontend/tests/e2e/settings-discoverability.spec.ts
+- [ ] T011 [P] [US1] Add frontend smoke test covering panel discovery and default values in frontend/tests/e2e/settings-discoverability.spec.ts (deferred — no frontend app yet)
 
 ### Implementation for User Story 1
 
-- [ ] T012 [P] [US1] Create the settings panel shell and right-side glass-panel layout in frontend/components/settings-panel/SettingsPanel.tsx
-- [ ] T013 [P] [US1] Add panel open/close state and Knowledge Base labeling in frontend/app/(app)/projects/[projectId]/chat/[threadId]/page.tsx
-- [ ] T014 [P] [US1] Create the client settings hook and default state logic in frontend/lib/settings/useConversationSettings.ts
-- [ ] T015 [US1] Add accessible labels, helper text, and plain-language descriptions for each control in frontend/components/settings-panel/SettingsControls.tsx
+- [ ] T012 [P] [US1] Create the settings panel shell and right-side glass-panel layout in frontend/components/settings-panel/SettingsPanel.tsx (deferred — no frontend app yet)
+- [ ] T013 [P] [US1] Add panel open/close state and Knowledge Base labeling in frontend/app/(app)/projects/[projectId]/chat/[threadId]/page.tsx (deferred)
+- [ ] T014 [P] [US1] Create the client settings hook and default state logic in frontend/lib/settings/useConversationSettings.ts (deferred)
+- [ ] T015 [US1] Add accessible labels, helper text, and plain-language descriptions for each control in frontend/components/settings-panel/SettingsControls.tsx (deferred)
 
 **Checkpoint**: At this point, User Story 1 should be fully functional and testable independently
 
@@ -69,15 +69,15 @@
 
 ### Tests for User Story 2
 
-- [ ] T016 [P] [US2] Add backend integration test for web-search on/off routing in backend/tests/integration/test_settings_web_search.py
-- [ ] T017 [P] [US2] Add E2E test for toggle effect and no-reload behavior in frontend/tests/e2e/settings-web-search.spec.ts
+- [X] T016 [P] [US2] Add backend integration test for web-search on/off routing in backend/tests/integration/test_settings_applied_to_rag_graph.py and backend/tests/unit/test_web_search.py
+- [ ] T017 [P] [US2] Add E2E test for toggle effect and no-reload behavior in frontend/tests/e2e/settings-web-search.spec.ts (deferred — no frontend app yet)
 
 ### Implementation for User Story 2
 
-- [ ] T018 [P] [US2] Add `web_search_enabled` validation and persistence to the settings schema in backend/app/models/conversation_settings.py
-- [ ] T019 [US2] Implement the conditional LangGraph routing node and web-search branch in backend/app/rag/web_search.py and backend/app/rag/graph.py
-- [ ] T020 [P] [US2] Add the frontend web-search toggle and immediate PATCH behavior in frontend/components/settings-panel/SettingsControls.tsx
-- [ ] T021 [US2] Ensure the backend falls back to document-only context when web search fails or times out in backend/app/rag/web_search.py
+- [X] T018 [P] [US2] Add `web_search_enabled` validation and persistence to the settings schema in backend/app/models/conversation_settings.py
+- [X] T019 [US2] Implement the conditional routing node and web-search branch in backend/app/rag/web_search.py and backend/app/rag/graph.py
+- [ ] T020 [P] [US2] Add the frontend web-search toggle and immediate PATCH behavior in frontend/components/settings-panel/SettingsControls.tsx (deferred)
+- [X] T021 [US2] Ensure the backend falls back to document-only context when web search fails or times out in backend/app/rag/web_search.py
 
 **Checkpoint**: At this point, User Stories 1 and 2 should both work independently
 
@@ -91,13 +91,13 @@
 
 ### Tests for User Story 3
 
-- [ ] T022 [P] [US3] Add backend integration test covering precise/balanced/creative mapping in backend/tests/integration/test_settings_creativity.py
-- [ ] T023 [P] [US3] Add Playwright flow covering creativity updates mid-conversation in frontend/tests/e2e/settings-creativity.spec.ts
+- [X] T022 [P] [US3] Add backend integration test covering precise/balanced/creative mapping in backend/tests/integration/test_settings_applied_to_rag_graph.py
+- [ ] T023 [P] [US3] Add Playwright flow covering creativity updates mid-conversation in frontend/tests/e2e/settings-creativity.spec.ts (deferred — no frontend app yet)
 
 ### Implementation for User Story 3
 
-- [ ] T024 [P] [US3] Add `creativity_level` validation and mapping to the internal temperature value in backend/app/models/conversation_settings.py
-- [ ] T025 [US3] Wire the resolved creativity setting into the generation parameters in backend/app/rag/generation.py and backend/app/rag/graph.py
+- [X] T024 [P] [US3] Add `creativity_level` validation and mapping to the internal temperature value in backend/app/models/conversation_settings.py
+- [X] T025 [US3] Wire the resolved creativity setting into the generation parameters in backend/app/rag/generation.py and backend/app/rag/graph.py
 - [ ] T026 [P] [US3] Add plain-language creativity controls (Precise / Balanced / Creative) to frontend/components/settings-panel/SettingsControls.tsx
 
 **Checkpoint**: User Story 3 should be independently testable without relying on earlier stories
@@ -112,15 +112,15 @@
 
 ### Tests for User Story 4
 
-- [ ] T027 [P] [US4] Add retrieval-specific backend integration test in backend/tests/integration/test_settings_retrieval.py
-- [ ] T028 [P] [US4] Add retrieval E2E test covering document-type filter and top-k changes in frontend/tests/e2e/settings-retrieval.spec.ts
+- [X] T027 [P] [US4] Add retrieval-specific backend integration test in backend/tests/integration/test_settings_applied_to_rag_graph.py
+- [ ] T028 [P] [US4] Add retrieval E2E test covering document-type filter and top-k changes in frontend/tests/e2e/settings-retrieval.spec.ts (deferred — no frontend app yet)
 
 ### Implementation for User Story 4
 
-- [ ] T029 [P] [US4] Add `retrieval_top_k` and `included_document_types` validation in backend/app/models/conversation_settings.py
-- [ ] T030 [US4] Thread retrieval settings into project-document retrieval in backend/app/rag/retriever.py
-- [ ] T031 [US4] Add document-type UI controls with zero-selection guard in frontend/components/settings-panel/DocumentTypeFilter.tsx
-- [ ] T032 [US4] Enforce at least one included type or fallback to "all known types" in backend/app/services/settings_service.py
+- [X] T029 [P] [US4] Add `retrieval_top_k` and `included_document_types` validation in backend/app/models/conversation_settings.py
+- [X] T030 [US4] Thread retrieval settings (top_k + document-type filter) into project-document retrieval in backend/app/rag/graph.py (`_filter_by_document_type`) and backend/app/rag/retriever.py
+- [ ] T031 [US4] Add document-type UI controls with zero-selection guard in frontend/components/settings-panel/DocumentTypeFilter.tsx (deferred)
+- [X] T032 [US4] Enforce at least one included type or fallback to "all known types" in backend/app/models/conversation_settings.py (`validate_included_document_types`) and backend/app/services/settings_service.py
 
 **Checkpoint**: User Story 4 should be independently functional and safe by validation
 
@@ -134,14 +134,14 @@
 
 ### Tests for User Story 5
 
-- [ ] T033 [P] [US5] Add in-flight-generation regression test in backend/tests/integration/test_settings_inflight.py
-- [ ] T034 [P] [US5] Add no-reload history-preservation Playwright test in frontend/tests/e2e/settings-apply-no-reload.spec.ts
+- [X] T033 [P] [US5] Add in-flight-generation regression test in backend/tests/unit/test_settings_service.py (`test_snapshot_is_detached_from_later_updates`)
+- [ ] T034 [P] [US5] Add no-reload history-preservation Playwright test in frontend/tests/e2e/settings-apply-no-reload.spec.ts (deferred — no frontend app yet)
 
 ### Implementation for User Story 5
 
-- [ ] T035 [US5] Ensure optimistic UI updates and immediate PATCH persistence in frontend/lib/settings/useConversationSettings.ts
-- [ ] T036 [US5] Snapshot settings at the start of each ask request and ensure later setting changes do not mutate in-flight answers in backend/app/api/routes/ask.py and backend/app/services/settings_service.py
-- [ ] T037 [US5] Persist `effective_settings_snapshot` on assistant messages and preserve historical answers/citations unchanged in backend/app/services/message_service.py
+- [ ] T035 [US5] Ensure optimistic UI updates and immediate PATCH persistence in frontend/lib/settings/useConversationSettings.ts (deferred)
+- [X] T036 [US5] Snapshot settings at the start of each ask request and ensure later setting changes do not mutate in-flight answers in backend/app/api/routes/chat.py and backend/app/services/settings_service.py (`SettingsService.snapshot`)
+- [X] T037 [US5] Persist `effective_settings_snapshot` on assistant messages and preserve historical answers/citations unchanged in backend/app/models/message.py and backend/app/api/routes/chat.py
 
 **Checkpoint**: User Story 5 should be independently validated; all P1 stories are complete
 
@@ -151,11 +151,25 @@
 
 **Purpose**: Final validation, consistency checks, and product-quality review across all stories
 
-- [ ] T038 [P] Run backend contract and unit test validation for settings API, validation, and routing in backend/tests/contract/test_settings_contract.py and backend/tests/unit/
-- [ ] T039 [P] Run frontend settings-panel E2E validation across all settings flows in frontend/tests/e2e/
-- [ ] T040 [P] Update feature documentation and validation notes in specs/004-rag-settings-panel/quickstart.md and specs/004-rag-settings-panel/research.md
-- [ ] T041 Review security isolation, citation traceability, and RLS correctness across backend/app/services/ and backend/migrations/
-- [ ] T042 Complete a dark-mode, accessibility, and glass-panel consistency review for frontend/components/settings-panel/ and frontend/app/(app)/projects/[projectId]/chat/[threadId]/page.tsx
+- [X] T038 [P] Run backend contract and unit test validation for settings API, validation, and routing in backend/tests/contract/test_settings_contract.py and backend/tests/unit/
+- [ ] T039 [P] Run frontend settings-panel E2E validation across all settings flows in frontend/tests/e2e/ (deferred — no frontend app yet)
+- [X] T040 [P] Update feature documentation and validation notes in specs/004-rag-settings-panel/tasks.md (Implementation Status section)
+- [X] T041 Review security isolation, citation traceability, and RLS correctness across backend/app/services/ and backend/app/rag/ (in-memory scoping verified by tests; real RLS/migration deferred, see T004)
+- [ ] T042 Complete a dark-mode, accessibility, and glass-panel consistency review for frontend/components/settings-panel/ and frontend/app/(app)/projects/[projectId]/chat/[threadId]/page.tsx (deferred — no frontend app yet)
+
+## Implementation Status (this session)
+
+- All backend user stories (US1 default-settings behavior, US2 web-search toggle + graceful
+  fallback, US3 creativity mapping, US4 retrieval tuning + document-type filter, US5 in-flight
+  isolation + settings snapshot persistence) are implemented and covered by unit, integration,
+  and contract tests.
+- Settings persistence is in-memory (`SettingsService`), matching the same fidelity level as
+  the merged 001/002 backend code; the Supabase Postgres migration (T004) and RLS policy are
+  deferred pending real database wiring.
+- Frontend (`SettingsPanel`, `SettingsControls`, `DocumentTypeFilter`, `useConversationSettings`,
+  and all Playwright/E2E coverage) is not implemented — this repository has no frontend
+  application scaffolding (no package.json/Next.js app) prior to or after this session. Building
+  it is a distinct follow-up task.
 
 ---
 

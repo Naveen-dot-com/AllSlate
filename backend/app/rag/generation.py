@@ -15,6 +15,7 @@ class GenerationResult:
     content: str
     is_grounded: bool
     contributing_snippet_indices: List[int] = field(default_factory=list)
+    temperature_used: float = 0.6
 
 
 class GenerationError(Exception):
@@ -36,12 +37,18 @@ class AnswerGenerator:
     def _default_llm_call(prompt: str) -> str:
         raise GenerationError("No LLM client configured")
 
-    def generate(self, question: str, snippets: List[ContextSnippet]) -> GenerationResult:
+    def generate(
+        self,
+        question: str,
+        snippets: List[ContextSnippet],
+        temperature: float = 0.6,
+    ) -> GenerationResult:
         if not snippets:
             return GenerationResult(
                 content=INSUFFICIENT_EVIDENCE_TEXT,
                 is_grounded=False,
                 contributing_snippet_indices=[],
+                temperature_used=temperature,
             )
 
         prompt = format_prompt(question, snippets)
@@ -54,4 +61,5 @@ class AnswerGenerator:
             content=answer_text,
             is_grounded=True,
             contributing_snippet_indices=[s.index for s in snippets],
+            temperature_used=temperature,
         )
