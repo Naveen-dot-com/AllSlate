@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Dict, List, Optional
 
+from backend.app.models.document import ProcessedElement
 from backend.app.models.message import MessageCitation
 from backend.app.rag.retriever import RetrievedChunk
 
@@ -38,3 +39,23 @@ def build_citations(
             )
         )
     return citations
+
+
+def resolve_citation_confidence(
+    chunk: RetrievedChunk,
+    elements_by_id: Dict[str, ProcessedElement],
+) -> tuple[str, Optional[str]] | None:
+    """T040: read-only lookup of a citation's source-element confidence.
+
+    Reads `elements.confidence`/`confidence_reason` via the existing
+    `chunks.element_id` relationship (carried in `chunk.metadata["element_id"]`), for
+    future use surfacing confidence on chat citations (FR-015). No new schema required.
+    """
+    element_id = chunk.metadata.get("element_id")
+    if not element_id:
+        return None
+    element = elements_by_id.get(element_id)
+    if element is None:
+        return None
+    return (element.confidence, element.confidence_reason)
+

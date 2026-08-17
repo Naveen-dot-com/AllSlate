@@ -44,3 +44,15 @@ def summarize_document_status(elements: Iterable[dict] | None) -> tuple[str, str
 
 def has_low_confidence_content(elements: Iterable[dict] | None) -> bool:
     return summarize_document_status(elements)[2]
+
+
+def document_detail_fields(document) -> dict:
+    """T028: fields surfaced by the document detail API - status, failure_category, and
+    has_low_confidence_content, derived from the document's own elements."""
+    element_dicts = [{"confidence": element.confidence} for element in document.elements]
+    return {
+        "status": document.status.value,
+        "failure_category": document.failure_category,
+        "has_low_confidence_content": has_low_confidence_content(element_dicts),
+    }
+

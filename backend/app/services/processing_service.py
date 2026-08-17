@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import List
 
 from backend.app.models.document import Document, ProcessingStatus
+from backend.app.pipeline.graph import resolve_document_outcome
 
 
 @dataclass
@@ -24,5 +25,12 @@ class ProcessingService:
 
     def process_all(self) -> List[ProcessingJob]:
         for job in self._jobs:
-            job.document.status = ProcessingStatus.STORED
+            document = job.document
+            elements = [
+                {"confidence": element.confidence} for element in document.elements
+            ]
+            outcome = resolve_document_outcome(document.document_id, elements)
+            document.status = outcome.current_status
+            document.failure_reason = outcome.failure_reason
+            document.failure_category = outcome.failure_category
         return list(self._jobs)
