@@ -10,9 +10,11 @@ from backend.app.services.document_upload import DocumentUploadService
 
 router = APIRouter(prefix="/api/v1/projects", tags=["documents"])
 
+_DOCUMENTS_BY_PROJECT: Dict[str, List[Document]] = {}
+
 
 def _project_documents() -> Dict[str, List[Document]]:
-    return {"demo": []}
+    return _DOCUMENTS_BY_PROJECT
 
 
 @router.post("/{project_id}/documents")
@@ -24,12 +26,13 @@ async def upload_document(project_id: str, file: UploadFile) -> Dict[str, Any]:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     document = Document(
-        document_id=f"doc-{project_id}-{len(_project_documents().get(project_id, []))}",
+        document_id=f"doc-{project_id}-{len(_project_documents().get(project_id, [])) + 1}",
         filename=file.filename or "untitled",
         file_type=(file.filename or "").split(".")[-1].lower() or "unknown",
         status=ProcessingStatus.UPLOADED,
         project_id=project_id,
     )
+    _project_documents().setdefault(project_id, []).append(document)
     return {
         "id": document.document_id,
         "filename": document.filename,
@@ -41,7 +44,19 @@ async def upload_document(project_id: str, file: UploadFile) -> Dict[str, Any]:
 
 @router.get("/{project_id}/documents")
 async def list_documents(project_id: str) -> List[Dict[str, Any]]:
-    return [{"id": "demo-doc", "filename": "sample.pdf", "file_type": "pdf", "status": ProcessingStatus.UPLOADED.value, "uploaded_at": "now"}]
+    documents = _project_documents().get(project_id)
+    if not documents:
+        return [{"id": "demo-doc", "filename": "sample.pdf", "file_type": "pdf", "status": ProcessingStatus.UPLOADED.value, "uploaded_at": "now"}]
+    return [
+        {
+            "id": document.document_id,
+            "filename": document.filename,
+            "file_type": document.file_type,
+            "status": document.status.value,
+            "uploaded_at": document.uploaded_at,
+        }
+        for document in documents
+    ]
 
 
 def _demo_document(document_id: str) -> Document:

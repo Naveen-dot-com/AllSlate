@@ -22,7 +22,7 @@
 
 - [ ] T001 Create the backend application structure and domain folders in `backend/app/api/`, `backend/app/models/`, `backend/app/services/`, `backend/app/db/`, and `backend/migrations/`
 - [ ] T002 [P] Initialize the backend Python environment and FastAPI/Pydantic configuration in `backend/requirements.txt` and `backend/app/main.py`
-- [ ] T003 [P] Initialize the frontend Next.js App Router shell, theme provider, and design-system entry points in `frontend/app/`, `frontend/components/`, and `frontend/lib/`
+- [X] T003 [P] Initialize the frontend Next.js App Router shell, theme provider, and design-system entry points in `frontend/app/`, `frontend/components/`, and `frontend/lib/`
 - [ ] T004 [P] Add shared environment/config validation for Supabase credentials and app settings in `backend/app/config.py` and `frontend/lib/supabase/config.ts`
 
 **Checkpoint**: Project structure and shared configuration exist; backend and frontend can be developed in parallel.

@@ -12,7 +12,7 @@
 
 - [X] T001 Create backend chat and retrieval module structure in backend/app/api/routes/chat.py, backend/app/rag/, backend/app/services/, and backend/app/models/
 - [X] T002 [P] Initialize backend Python dependencies for FastAPI, LangChain, pgvector, Supabase, and Gemini integration in backend/requirements.txt or backend/pyproject.toml
-- [ ] T003 [P] Initialize frontend chat state and SSE client scaffolding in frontend/lib/chat/ and frontend/components/chat/ (not yet implemented — no frontend app scaffolding exists in this repo)
+- [X] T003 [P] Initialize frontend chat state and SSE client scaffolding in frontend/lib/chat/ and frontend/components/chat/ (implemented in the consolidated frontend API/client workspace)
 - [X] T004 [P] Configure pytest and shared test directories under backend/tests/ (Vitest/Playwright frontend harness not yet implemented)
 
 ---
