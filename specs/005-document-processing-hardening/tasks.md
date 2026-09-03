@@ -165,16 +165,16 @@ view marks that section distinctly, per quickstart.md Scenario 2.
 - [X] T030 [US2] Update the elements list API route to serialize
       `confidence`/`confidence_reason` per element in
       `backend/app/api/routes/documents.py` (depends on T006)
-- [ ] T031 [P] [US2] Add a low-confidence/partial badge component (using existing design-system
-      primitives) in `frontend/components/documents/confidence-badge.tsx` (deferred — no
-      frontend app scaffolding exists in this repo, consistent with specs 003/004 precedent)
-- [ ] T032 [US2] Wire the confidence badge into the element/chunk detail view and a
+- [X] T031 [P] [US2] Add a low-confidence/partial badge component in
+      `frontend/components/documents/confidence-badge.tsx` (a `frontend/app` Next.js client now
+      exists; extracted into its own component out of the single-page workspace view)
+- [X] T032 [US2] Wire the confidence badge into the element/chunk detail view and a
       document-level partial/uncertain indicator into the document detail view in
-      `frontend/app/(app)/projects/[projectId]/documents/[documentId]/page.tsx` (depends on
-      T031) (deferred — no frontend app yet)
+      `frontend/app/page.tsx` (single-page workspace, not a per-document route — depends on T031)
 - [ ] T033 [P] [US2] Playwright e2e test verifying confidence badges render correctly for the
-      hardening fixtures in `frontend/tests/e2e/hardening-confidence-badges.spec.ts` (deferred
-      — no frontend app yet)
+      hardening fixtures in `frontend/tests/e2e/hardening-confidence-badges.spec.ts` (deferred —
+      no Playwright harness is configured in this repo yet for any spec, see specs 001–004;
+      needs `frontend` devDependency + `playwright.config.ts` + a running backend fixture set)
 
 **Checkpoint**: Inspection views correctly and visibly reflect actual extraction confidence —
 User Stories 1 and 2 both independently functional

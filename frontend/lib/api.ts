@@ -3,7 +3,7 @@ export type DocumentDetail = DocumentItem & { failure_category: string | null; h
 export type ElementItem = { id: string; element_type: string; page_number: number | null; confidence: "confident" | "partial" | "uncertain"; confidence_reason: string | null };
 export type Citation = { document_id: string; page_number: number | null; asset_reference_url: string | null };
 export type Message = { id: string; sequence_number: number; role: "user" | "assistant"; content: string; status: "complete" | "pending" | "failed"; failure_reason: string | null; is_grounded: boolean; created_at: string; citations: Citation[] };
-export type Settings = { web_search_enabled: boolean; creativity_level: "focused" | "balanced" | "creative"; retrieval_top_k: number; included_document_types: string[]; updated_at: string };
+export type Settings = { web_search_enabled: boolean; creativity_level: "focused" | "precise" | "balanced" | "creative"; retrieval_top_k: number; included_document_types: string[]; updated_at: string };
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const response = await fetch(`/api/v1${path}`, { ...options, headers: { "Content-Type": "application/json", ...options?.headers } });

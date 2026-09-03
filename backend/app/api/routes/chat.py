@@ -8,9 +8,11 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from backend.app.models.message import MessageStatus
+from backend.app.rag.generation import AnswerGenerator
 from backend.app.rag.graph import RagChatGraph
 from backend.app.rag.retriever import RetrievedChunk
 from backend.app.services.conversation_service import ConversationService
+from backend.app.services.document_store import document_store
 from backend.app.services.message_service import MessageService
 from backend.app.api.routes.conversation_settings import get_settings_service
 
@@ -18,7 +20,13 @@ router = APIRouter(prefix="/api/v1/projects", tags=["chat"])
 
 _conversations = ConversationService()
 _messages = MessageService()
-_graph = RagChatGraph()
+def _local_answer(prompt: str) -> str:
+    """Predictable local fallback until a production LLM provider is configured."""
+    source = prompt.split("Sources:\n", maxsplit=1)[-1].split("\n\nQuestion:", maxsplit=1)[0]
+    return f"Based on your processed documents:\n\n{source}"
+
+
+_graph = RagChatGraph(generator=AnswerGenerator(llm_call=_local_answer))
 
 
 class CreateConversationRequest(BaseModel):
@@ -34,6 +42,31 @@ def _get_owned_conversation(project_id: str, conversation_id: str):
         return _conversations.get_owned(project_id, conversation_id)
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="conversation not found") from exc
+
+
+def _project_candidates(project_id: str, question: str) -> List[RetrievedChunk]:
+    question_terms = set(question.lower().split())
+    candidates: List[RetrievedChunk] = []
+    for document in document_store.list(project_id):
+        for element in document.elements:
+            content = (element.raw_text or "").strip()
+            if not content:
+                continue
+            content_terms = set(content.lower().split())
+            overlap = len(question_terms & content_terms)
+            candidates.append(
+                RetrievedChunk(
+                    chunk_id=element.element_id,
+                    document_id=document.document_id,
+                    project_id=project_id,
+                    page_content=content,
+                    element_type=element.element_type,
+                    page_number=element.page_number,
+                    score=0.9 if overlap else 0.3,
+                    metadata={"element_id": element.element_id},
+                )
+            )
+    return candidates
 
 
 @router.post("/{project_id}/conversations", status_code=201)
@@ -91,7 +124,7 @@ async def ask(project_id: str, conversation_id: str, body: AskRequest) -> Stream
     settings_snapshot = get_settings_service().snapshot(conversation_id)
 
     async def event_stream() -> AsyncIterator[str]:
-        candidates: List[RetrievedChunk] = []
+        candidates = _project_candidates(project_id, body.question)
 
         def on_phase(phase: str) -> None:
             pass  # phase events are emitted explicitly below to keep ordering deterministic

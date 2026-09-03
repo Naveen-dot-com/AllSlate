@@ -37,6 +37,8 @@ class ConversationSettings:
 
 
 def validate_creativity_level(value: str) -> str:
+    if value == "focused":
+        return "precise"
     if value not in _VALID_CREATIVITY_LEVELS:
         raise SettingsValidationError(
             f"creativity_level must be one of {sorted(_VALID_CREATIVITY_LEVELS)}"

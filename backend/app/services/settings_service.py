@@ -47,7 +47,7 @@ class SettingsService:
         current = self.get_or_create(conversation_id)
 
         if creativity_level is not None:
-            validate_creativity_level(creativity_level)
+            creativity_level = validate_creativity_level(creativity_level)
         if retrieval_top_k is not None:
             validate_retrieval_top_k(retrieval_top_k)
         if included_document_types is not None:

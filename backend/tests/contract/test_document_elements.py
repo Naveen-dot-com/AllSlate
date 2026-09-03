@@ -12,10 +12,20 @@ def _client() -> TestClient:
     return TestClient(app)
 
 
+def _upload_document(client: TestClient) -> str:
+    response = client.post(
+        "/api/v1/projects/project-1/documents",
+        files={"file": ("notes.txt", b"A document with useful notes.", "text/plain")},
+    )
+    assert response.status_code == 202
+    return response.json()["id"]
+
+
 def test_document_elements_include_confidence_fields() -> None:
     client = _client()
 
-    response = client.get("/api/v1/projects/project-1/documents/doc-1/elements")
+    document_id = _upload_document(client)
+    response = client.get(f"/api/v1/projects/project-1/documents/{document_id}/elements")
 
     assert response.status_code == 200
     body = response.json()
