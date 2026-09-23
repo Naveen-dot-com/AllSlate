@@ -58,7 +58,6 @@ function buildWorkspace(name: string, id: string): Workspace {
 
 const FALLBACK_WORKSPACES: Workspace[] = [
   buildWorkspace("Workspace 1", "workspace-1"),
-  buildWorkspace("Workspace 2", "workspace-2"),
 ];
 
 function readStoredWorkspaces(): Workspace[] {

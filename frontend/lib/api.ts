@@ -69,8 +69,11 @@ function fileToDataUrl(file: File): Promise<string> {
 }
 
 function localApiUrl(path: string) {
-  const base = API_BASE || "/api/v1";
-  return `${base}${path}`;
+  const normalized = path.startsWith("/") ? path : `/${path}`;
+  if (normalized.startsWith("/api")) {
+    return normalized;
+  }
+  return `/api${normalized}`;
 }
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
@@ -163,9 +166,22 @@ export const api = {
   elements: (projectId: string, documentId: string) => request<ElementItem[]>(`/projects/${projectId}/documents/${documentId}/elements`),
   documentFileUrl: (projectId: string, documentId: string) => {
     if (typeof window === "undefined") return "";
+    if (API_BASE) {
+      return localApiUrl(`/v1/projects/${projectId}/documents/${documentId}/file`);
+    }
+
     const state = projectStore(projectId);
     const document = state.documents.find((item) => item.id === documentId);
     if (document?.file_data_url) return document.file_data_url;
+
+    if (document?.file_type === "pdf") {
+      return `data:application/pdf;base64,${btoa(`%PDF-1.4\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\n%%EOF`)}`;
+    }
+
+    if (document?.file_type === "txt" || document?.file_type === "md") {
+      return `data:text/plain;charset=utf-8,${encodeURIComponent(`Demo document: ${document?.filename ?? documentId}`)}`;
+    }
+
     return `data:text/plain;base64,${btoa(`Demo document: ${document?.filename ?? documentId}`)}`;
   },
   upload: async (projectId: string, file: File) => {

@@ -54,13 +54,46 @@ class DocumentStore:
 
     async def process(self, document: Document, text: str) -> None:
         try:
+            raw_text = text.strip()
+            if not raw_text:
+                self.update_status(document, ProcessingStatus.PARTITIONING, "No readable text could be extracted from the uploaded file.")
+                await asyncio.sleep(0.2)
+                self.update_status(document, ProcessingStatus.FAILED, "No readable text could be extracted from the uploaded file.", "other")
+                return
+
             for status in (ProcessingStatus.PARTITIONING, ProcessingStatus.CHUNKING, ProcessingStatus.SUMMARIZING, ProcessingStatus.VECTORIZING):
                 self.update_status(document, status)
-                await asyncio.sleep(0.2)
-            extracted_text = text.strip() or "No readable text could be extracted from this document."
-            confidence = "confident" if text.strip() else "uncertain"
-            reason = None if text.strip() else "No readable text was recovered from the uploaded file."
-            document.elements = [ProcessedElement(f"{document.document_id}-element-1", "text", 1, extracted_text, confidence=confidence, confidence_reason=reason)]
+                await asyncio.sleep(0.4)
+
+            paragraphs = [segment.strip() for segment in raw_text.replace("\r\n", "\n").split("\n\n") if segment.strip()]
+            if not paragraphs:
+                paragraphs = [raw_text]
+
+            chunk_size = max(180, len(raw_text) // max(1, min(4, len(paragraphs))))
+            chunks: list[str] = []
+            for paragraph in paragraphs:
+                if len(paragraph) <= chunk_size:
+                    chunks.append(paragraph)
+                    continue
+                for index in range(0, len(paragraph), chunk_size):
+                    chunk = paragraph[index:index + chunk_size].strip()
+                    if chunk:
+                        chunks.append(chunk)
+
+            if not chunks:
+                chunks = [raw_text]
+
+            document.elements = [
+                ProcessedElement(
+                    f"{document.document_id}-element-{index}",
+                    "text",
+                    (index % 3) + 1,
+                    chunk,
+                    confidence="confident" if index < len(chunks) else "partial",
+                    confidence_reason=None if index < len(chunks) else "Chunk boundaries were inferred from the extracted text.",
+                )
+                for index, chunk in enumerate(chunks[:8], start=1)
+            ]
             document.element_count = len(document.elements)
             outcome = resolve_document_outcome(document.document_id, [{"confidence": element.confidence} for element in document.elements])
             self.update_status(document, outcome.current_status, outcome.failure_reason, outcome.failure_category)
