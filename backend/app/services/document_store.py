@@ -15,10 +15,28 @@ class DocumentStore:
 
     def __init__(self) -> None:
         self.documents: Dict[str, Document] = {}
+        self.file_bytes: Dict[str, bytes] = {}
         self.events: DefaultDict[str, List[StatusEvent]] = defaultdict(list)
 
     def add(self, document: Document) -> None:
         self.documents[document.document_id] = document
+
+    def store_file(self, document_id: str, content: bytes) -> None:
+        self.file_bytes[document_id] = content
+
+    def get_file(self, project_id: str, document_id: str) -> bytes | None:
+        document = self.documents.get(document_id)
+        if document is None or document.project_id != project_id:
+            return None
+        return self.file_bytes.get(document_id)
+
+    def delete(self, project_id: str, document_id: str) -> bool:
+        document = self.documents.get(document_id)
+        if document is None or document.project_id != project_id:
+            return False
+        self.documents.pop(document_id, None)
+        self.file_bytes.pop(document_id, None)
+        return True
 
     def list(self, project_id: str) -> List[Document]:
         return [document for document in self.documents.values() if document.project_id == project_id]

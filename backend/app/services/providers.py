@@ -17,10 +17,18 @@ for env_path in (project_root / ".env", project_root / "backend" / ".env"):
         load_dotenv(env_path)
 
 
+def _first_env(*names: str) -> str | None:
+    for name in names:
+        value = os.getenv(name)
+        if value and value.strip():
+            return value.strip()
+    return None
+
+
 def get_supabase_client() -> Optional[Client]:
     """Return a configured Supabase client when backend credentials are available."""
-    url = os.getenv("SUPABASE_URL")
-    key = os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_ANON_KEY")
+    url = _first_env("SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_URL")
+    key = _first_env("SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_ANON_KEY", "NEXT_PUBLIC_SUPABASE_ANON_KEY")
     if not url or not key:
         return None
     try:
@@ -31,7 +39,7 @@ def get_supabase_client() -> Optional[Client]:
 
 def get_gemini_call() -> Optional[Callable[[str], str]]:
     """Return a real Gemini generation callable when a key is configured."""
-    api_key = os.getenv("GEMINI_API_KEY")
+    api_key = _first_env("GEMINI_API_KEY", "GOOGLE_API_KEY", "GOOGLE_GENERATIVE_AI_API_KEY")
     if not api_key:
         return None
 

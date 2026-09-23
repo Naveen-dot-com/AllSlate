@@ -1,19 +1,20 @@
 "use client";
 
-import { ChangeEvent, FormEvent, useEffect, useState } from "react";
+import { ChangeEvent, KeyboardEvent, useEffect, useMemo, useState } from "react";
 import {
   Bot,
+  Check,
   ChevronRight,
   FileText,
-  FolderOpen,
   LoaderCircle,
   MessageSquarePlus,
   PanelRightOpen,
+  Pencil,
   Plus,
-  Search,
   Send,
   Settings2,
   Sparkles,
+  Trash2,
   Upload,
   X,
 } from "lucide-react";
@@ -22,7 +23,17 @@ import { ConfidenceBadge } from "@/components/documents/confidence-badge";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { TiltCard } from "@/components/tilt-card";
 
-const projectId = "demo";
+type Workspace = {
+  id: string;
+  name: string;
+  projectId: string;
+  documents: DocumentItem[];
+  conversationId?: string;
+  settings: Settings;
+  messages: Message[];
+};
+
+const WORKSPACE_STORAGE_KEY = "allslate-workspaces-v1";
 const RESPONSE_STYLES = ["precise", "balanced", "creative"] as const;
 const DOCUMENT_TYPES = ["text", "table", "image"] as const;
 
@@ -34,27 +45,150 @@ const defaultSettings: Settings = {
   updated_at: "",
 };
 
+function buildWorkspace(name: string, id: string): Workspace {
+  return {
+    id,
+    name,
+    projectId: id,
+    documents: [],
+    settings: { ...defaultSettings },
+    messages: [],
+  };
+}
+
+const FALLBACK_WORKSPACES: Workspace[] = [
+  buildWorkspace("Workspace 1", "workspace-1"),
+  buildWorkspace("Workspace 2", "workspace-2"),
+];
+
+function readStoredWorkspaces(): Workspace[] {
+  if (typeof window === "undefined") {
+    return FALLBACK_WORKSPACES;
+  }
+
+  try {
+    const raw = window.localStorage.getItem(WORKSPACE_STORAGE_KEY);
+    if (!raw) {
+      return FALLBACK_WORKSPACES;
+    }
+
+    const parsed = JSON.parse(raw) as Workspace[];
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      return parsed.map((workspace) => ({
+        ...workspace,
+        settings: { ...defaultSettings, ...workspace.settings },
+        documents: workspace.documents ?? [],
+        messages: workspace.messages ?? [],
+      }));
+    }
+  } catch {
+    // Ignore and rebuild if storage is unavailable or invalid.
+  }
+
+  return FALLBACK_WORKSPACES;
+}
+
+function getProgressForStatus(status: string | undefined): { progress: number; etaSeconds: number } {
+  switch (status) {
+    case "queued":
+      return { progress: 10, etaSeconds: 45 };
+    case "partitioning":
+      return { progress: 38, etaSeconds: 31 };
+    case "chunking":
+      return { progress: 60, etaSeconds: 21 };
+    case "summarizing":
+      return { progress: 76, etaSeconds: 12 };
+    case "vectorizing":
+      return { progress: 90, etaSeconds: 5 };
+    case "stored":
+    case "stored_partial":
+    case "failed":
+      return { progress: 100, etaSeconds: 0 };
+    default:
+      return { progress: 0, etaSeconds: 0 };
+  }
+}
+
 export default function Workspace() {
-  const [conversationId, setConversationId] = useState<string>();
-  const [documents, setDocuments] = useState<DocumentItem[]>([]);
+  const [workspaces, setWorkspaces] = useState<Workspace[]>(() => FALLBACK_WORKSPACES);
+  const [activeWorkspaceId, setActiveWorkspaceId] = useState<string>("workspace-1");
   const [selectedDocument, setSelectedDocument] = useState<DocumentDetail>();
   const [elements, setElements] = useState<ElementItem[]>([]);
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [settings, setSettings] = useState(defaultSettings);
   const [settingsOpen, setSettingsOpen] = useState(true);
+  const [settingsPanelWidth, setSettingsPanelWidth] = useState(330);
   const [question, setQuestion] = useState("");
   const [phase, setPhase] = useState("");
   const [error, setError] = useState("");
+  const [progressByDocument, setProgressByDocument] = useState<Record<string, number>>({});
+  const [editingWorkspaceId, setEditingWorkspaceId] = useState<string | null>(null);
+  const [workspaceDraftName, setWorkspaceDraftName] = useState("");
+  const [expandedWorkspaceId, setExpandedWorkspaceId] = useState<string | null>(null);
 
-  const loadDocuments = () =>
-    api
-      .documents(projectId)
-      .then(setDocuments)
-      .catch((err) => setError(err instanceof Error ? err.message : "Unable to load documents."));
+  const activeWorkspace = useMemo(
+    () => workspaces.find((workspace) => workspace.id === activeWorkspaceId) ?? workspaces[0],
+    [activeWorkspaceId, workspaces],
+  );
+
+  const projectId = activeWorkspace?.projectId ?? "workspace-1";
+  const conversationId = activeWorkspace?.conversationId;
+  const settings = activeWorkspace?.settings ?? defaultSettings;
+  const messages = activeWorkspace?.messages ?? [];
 
   useEffect(() => {
-    loadDocuments();
+    const stored = readStoredWorkspaces();
+    if (stored.length > 0) {
+      setWorkspaces(stored);
+      setActiveWorkspaceId((currentId) => currentId || stored[0]?.id || "workspace-1");
+    }
   }, []);
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && activeWorkspace) {
+      window.localStorage.setItem(WORKSPACE_STORAGE_KEY, JSON.stringify(workspaces));
+    }
+  }, [workspaces, activeWorkspace]);
+
+  useEffect(() => {
+    if (!workspaces.some((workspace) => workspace.id === activeWorkspaceId)) {
+      setActiveWorkspaceId(workspaces[0]?.id ?? "workspace-1");
+    }
+  }, [activeWorkspaceId, workspaces]);
+
+  const loadDocuments = async () => {
+    if (!activeWorkspace) return;
+    try {
+      const documents = await api.documents(projectId);
+      setWorkspaces((current) =>
+        current.map((workspace) =>
+          workspace.id === activeWorkspace.id ? { ...workspace, documents } : workspace,
+        ),
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to load documents.");
+    }
+  };
+
+  useEffect(() => {
+    setSelectedDocument(undefined);
+    setElements([]);
+    void loadDocuments();
+  }, [projectId]);
+
+  useEffect(() => {
+    if (!selectedDocument || !["queued", "partitioning", "chunking", "summarizing", "vectorizing"].includes(selectedDocument.status)) {
+      return;
+    }
+
+    const intervalId = window.setInterval(() => {
+      setProgressByDocument((current) => {
+        const startingPoint = current[selectedDocument.id] ?? getProgressForStatus(selectedDocument.status).progress;
+        const nextValue = Math.min(100, startingPoint + 3 + Math.random() * 5);
+        return { ...current, [selectedDocument.id]: nextValue };
+      });
+    }, 1100);
+
+    return () => window.clearInterval(intervalId);
+  }, [selectedDocument]);
 
   async function openDocument(documentId: string) {
     try {
@@ -69,55 +203,98 @@ export default function Workspace() {
     }
   }
 
+  function getDocumentActionLabel(fileType: string): string {
+    const normalized = fileType.toLowerCase();
+    if (normalized === "pdf") return "Open PDF";
+    if (normalized === "png" || normalized === "jpg" || normalized === "jpeg") return "Open Image";
+    if (normalized === "txt" || normalized === "md") return "Open Text";
+    if (normalized === "docx") return "Open Doc";
+    if (normalized === "url") return "Open URL";
+    return "Open File";
+  }
+
+  function openDocumentFile(documentId: string, filename: string, fileType: string) {
+    const url = api.documentFileUrl(projectId, documentId);
+    const label = getDocumentActionLabel(fileType);
+    if (label === "Open Image" || label === "Open PDF" || label === "Open Text" || label === "Open Doc") {
+      window.open(url, `_blank_${filename}`, "noopener,noreferrer");
+      return;
+    }
+    window.open(url, `_blank_${filename}`, "noopener,noreferrer");
+  }
+
   async function startConversation() {
+    if (!activeWorkspace) return;
     try {
       const conversation = await api.createConversation(projectId);
-      setConversationId(conversation.id);
-      setMessages([]);
-      setSettings(await api.settings(projectId, conversation.id));
+      const nextSettings = await api.settings(projectId, conversation.id);
+      setWorkspaces((current) =>
+        current.map((workspace) =>
+          workspace.id === activeWorkspace.id
+            ? { ...workspace, conversationId: conversation.id, messages: [], settings: nextSettings }
+            : workspace,
+        ),
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to create a conversation.");
     }
   }
 
-  async function submit(event: FormEvent) {
-    event.preventDefault();
+  async function submitQuestion() {
     if (!question.trim() || !conversationId) return;
     const content = question.trim();
     setQuestion("");
-    setMessages((current) => [
-      ...current,
-      {
-        id: `local-${Date.now()}`,
-        sequence_number: current.length,
-        role: "user",
-        content,
-        status: "complete",
-        failure_reason: null,
-        is_grounded: false,
-        created_at: "",
-        citations: [],
-      },
-    ]);
+    setWorkspaces((current) =>
+      current.map((workspace) =>
+        workspace.id === activeWorkspaceId
+          ? {
+              ...workspace,
+              messages: [
+                ...workspace.messages,
+                {
+                  id: `local-${Date.now()}`,
+                  sequence_number: workspace.messages.length,
+                  role: "user",
+                  content,
+                  status: "complete",
+                  failure_reason: null,
+                  is_grounded: false,
+                  created_at: "",
+                  citations: [],
+                },
+              ],
+            }
+          : workspace,
+      ),
+    );
     setPhase("Retrieving sources");
     try {
       await ask(projectId, conversationId, content, (event, data) => {
         if (event === "phase") setPhase(data.phase === "generating" ? "Writing answer" : "Retrieving sources");
         if (event === "complete") {
-          setMessages((current) => [
-            ...current,
-            {
-              id: String(data.message_id),
-              sequence_number: current.length,
-              role: "assistant",
-              content: String(data.content),
-              status: "complete",
-              failure_reason: null,
-              is_grounded: Boolean(data.is_grounded),
-              created_at: "",
-              citations: (data.citations as Message["citations"]) ?? [],
-            },
-          ]);
+          setWorkspaces((current) =>
+            current.map((workspace) =>
+              workspace.id === activeWorkspaceId
+                ? {
+                    ...workspace,
+                    messages: [
+                      ...workspace.messages,
+                      {
+                        id: String(data.message_id),
+                        sequence_number: workspace.messages.length,
+                        role: "assistant",
+                        content: String(data.content),
+                        status: "complete",
+                        failure_reason: null,
+                        is_grounded: Boolean(data.is_grounded),
+                        created_at: "",
+                        citations: (data.citations as Message["citations"]) ?? [],
+                      },
+                    ],
+                  }
+                : workspace,
+            ),
+          );
           setPhase("");
         }
         if (event === "failed") {
@@ -136,7 +313,7 @@ export default function Workspace() {
     if (!file) return;
     try {
       await api.upload(projectId, file);
-      loadDocuments();
+      await loadDocuments();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Upload failed.");
     } finally {
@@ -145,11 +322,35 @@ export default function Workspace() {
   }
 
   async function updateSettings(patch: Partial<Settings>) {
-    if (!conversationId) return;
+    if (!conversationId || !activeWorkspace) return;
     try {
-      setSettings(await api.updateSettings(projectId, conversationId, patch));
+      const nextSettings = await api.updateSettings(projectId, conversationId, patch);
+      setWorkspaces((current) =>
+        current.map((workspace) =>
+          workspace.id === activeWorkspace.id ? { ...workspace, settings: nextSettings } : workspace,
+        ),
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to save settings.");
+    }
+  }
+
+  async function deleteDocument(documentId: string) {
+    try {
+      await api.deleteDocument(projectId, documentId);
+      setWorkspaces((current) =>
+        current.map((workspace) =>
+          workspace.id === activeWorkspaceId
+            ? { ...workspace, documents: workspace.documents.filter((document) => document.id !== documentId) }
+            : workspace,
+        ),
+      );
+      if (selectedDocument?.id === documentId) {
+        setSelectedDocument(undefined);
+        setElements([]);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to delete document.");
     }
   }
 
@@ -157,11 +358,65 @@ export default function Workspace() {
     const types = settings.included_document_types.includes(type)
       ? settings.included_document_types.filter((item) => item !== type)
       : [...settings.included_document_types, type];
-    if (types.length) updateSettings({ included_document_types: types });
+    if (types.length) {
+      void updateSettings({ included_document_types: types });
+    }
   }
 
+  function addWorkspace() {
+    const nextIndex = workspaces.length + 1;
+    const nextWorkspace = buildWorkspace(`Workspace ${nextIndex}`, `workspace-${nextIndex}`);
+    setWorkspaces((current) => [...current, nextWorkspace]);
+    setActiveWorkspaceId(nextWorkspace.id);
+  }
+
+  function beginRenameWorkspace(workspace: Workspace) {
+    setEditingWorkspaceId(workspace.id);
+    setWorkspaceDraftName(workspace.name);
+  }
+
+  function finishRenameWorkspace() {
+    if (!editingWorkspaceId) return;
+
+    const trimmed = workspaceDraftName.trim();
+    if (!trimmed) {
+      setEditingWorkspaceId(null);
+      setWorkspaceDraftName("");
+      return;
+    }
+
+    setWorkspaces((current) =>
+      current.map((workspace) =>
+        workspace.id === editingWorkspaceId ? { ...workspace, name: trimmed } : workspace,
+      ),
+    );
+    setEditingWorkspaceId(null);
+    setWorkspaceDraftName("");
+  }
+
+  function deleteWorkspace(workspaceId: string) {
+    if (workspaces.length <= 1) return;
+
+    setWorkspaces((current) => {
+      const remaining = current.filter((workspace) => workspace.id !== workspaceId);
+      if (activeWorkspaceId === workspaceId) {
+        setActiveWorkspaceId(remaining[0]?.id ?? "workspace-1");
+      }
+      return remaining;
+    });
+
+    if (editingWorkspaceId === workspaceId) {
+      setEditingWorkspaceId(null);
+      setWorkspaceDraftName("");
+    }
+  }
+
+  const selectedProgress = selectedDocument
+    ? progressByDocument[selectedDocument.id] ?? getProgressForStatus(selectedDocument.status).progress
+    : 0;
+
   return (
-    <main className="workspace">
+    <main className={settingsOpen ? "workspace" : "workspace settings-collapsed"}>
       <div className="orb orb-a" aria-hidden="true" />
       <div className="orb orb-b" aria-hidden="true" />
       <div className="orb orb-c" aria-hidden="true" />
@@ -170,22 +425,82 @@ export default function Workspace() {
         <div className="brand">
           <Sparkles size={18} /> AllSlate
         </div>
-        <button className="project-switch">
-          <span className="project-mark">D</span>
-          <span>Demo workspace</span>
-          <ChevronRight size={15} />
-        </button>
-        <nav>
-          <button className="nav-active">
-            <FolderOpen size={18} /> Workspace
-          </button>
-          <button>
-            <Search size={18} /> Search
-          </button>
-        </nav>
+        <div className="workspace-switcher">
+          <div className="workspace-switcher-header">
+            <span className="eyebrow">Workspaces</span>
+            <button type="button" className="plain-button small add-workspace-button" onClick={addWorkspace} aria-label="Add workspace">
+              <Plus size={16} />
+            </button>
+          </div>
+          {workspaces.map((workspace) => {
+            const isEditing = editingWorkspaceId === workspace.id;
+            const isActive = workspace.id === activeWorkspaceId;
+            const showWorkspaceActions = expandedWorkspaceId === workspace.id && !isEditing;
+
+            return (
+              <div key={workspace.id} className={isActive ? `workspace-item active ${showWorkspaceActions ? "expanded" : ""}` : `workspace-item ${showWorkspaceActions ? "expanded" : ""}`}>
+                {isEditing ? (
+                  <div className="workspace-name-editor">
+                    <input
+                      value={workspaceDraftName}
+                      onChange={(event) => setWorkspaceDraftName(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") finishRenameWorkspace();
+                        if (event.key === "Escape") {
+                          setEditingWorkspaceId(null);
+                          setWorkspaceDraftName("");
+                        }
+                      }}
+                      autoFocus
+                    />
+                    <div className="workspace-inline-actions">
+                      <button type="button" className="mini-button success" onClick={finishRenameWorkspace} aria-label="Save workspace name">
+                        <Check size={12} />
+                      </button>
+                      <button
+                        type="button"
+                        className="mini-button"
+                        onClick={() => {
+                          setEditingWorkspaceId(null);
+                          setWorkspaceDraftName("");
+                        }}
+                        aria-label="Cancel workspace rename"
+                      >
+                        <X size={12} />
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      className={isActive ? "project-switch active" : "project-switch"}
+                      onClick={() => {
+                        setActiveWorkspaceId(workspace.id);
+                        setExpandedWorkspaceId((current) => (current === workspace.id ? null : workspace.id));
+                      }}
+                    >
+                      <span className="project-mark">{workspace.name.slice(0, 1).toUpperCase()}</span>
+                      <span>{workspace.name}</span>
+                      <ChevronRight size={15} />
+                    </button>
+                    <div className={`workspace-actions ${showWorkspaceActions ? "visible" : ""}`}>
+                      <button type="button" className="mini-button" onClick={() => beginRenameWorkspace(workspace)} aria-label={`Rename ${workspace.name}`}>
+                        <Pencil size={12} />
+                      </button>
+                      <button type="button" className="mini-button danger" onClick={() => deleteWorkspace(workspace.id)} aria-label={`Delete ${workspace.name}`}>
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            );
+          })}
+        </div>
         <div className="rail-bottom">
           <ThemeToggle />
-          <button>
+          <button type="button" onClick={() => setSettingsOpen((value) => !value)}>
             <Settings2 size={18} /> Preferences
           </button>
           <div className="avatar">N</div>
@@ -196,7 +511,7 @@ export default function Workspace() {
         <header>
           <div>
             <p className="eyebrow">Project library</p>
-            <h1>Documents</h1>
+            <h1>{activeWorkspace?.name ?? "Workspace"}</h1>
           </div>
           <label className="icon-button" title="Upload document">
             <Upload size={18} />
@@ -204,21 +519,46 @@ export default function Workspace() {
           </label>
         </header>
         <div className="document-list">
-          {documents.map((document) => (
-            <button
-              key={document.id}
-              onClick={() => openDocument(document.id)}
-              className={selectedDocument?.id === document.id ? "document selected" : "document"}
-            >
-              <FileText size={18} />
-              <span>
-                <strong>{document.filename}</strong>
-                <small>
-                  {document.file_type.toUpperCase()} · {document.status.replace("_", " ")}
-                </small>
-              </span>
-            </button>
-          ))}
+          {(activeWorkspace?.documents ?? []).map((document) => {
+            const progress = progressByDocument[document.id] ?? getProgressForStatus(document.status).progress;
+            const eta = Math.max(0, Math.ceil((100 - progress) / 12));
+            return (
+              <div key={document.id} className={selectedDocument?.id === document.id ? "document-card selected" : "document-card"}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <button type="button" className="document-row" onClick={() => void openDocument(document.id)}>
+                    <FileText size={18} />
+                    <span>
+                      <strong>{document.filename}</strong>
+                      <small>{document.file_type.toUpperCase()} · {document.status.replace("_", " ")}</small>
+                    </span>
+                  </button>
+                  <div className="document-actions">
+                    <button type="button" className="pdf-button" onClick={(event) => {
+                      event.stopPropagation();
+                      openDocumentFile(document.id, document.filename, document.file_type);
+                    }}>
+                      {getDocumentActionLabel(document.file_type)}
+                    </button>
+                    <button type="button" className="delete-document" onClick={(event) => {
+                      event.stopPropagation();
+                      void deleteDocument(document.id);
+                    }} aria-label={`Delete ${document.filename}`}>
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                </div>
+                {document.status !== "stored" && document.status !== "failed" && document.status !== "stored_partial" && (
+                  <div className="document-progress" aria-live="polite">
+                    <div className="document-progress-bar" style={{ width: `${progress}%` }} />
+                    <div className="document-progress-meta">
+                      <span>{progress}%</span>
+                      <span>{eta}s left</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
         {selectedDocument && (
           <section className="inspection">
@@ -227,10 +567,24 @@ export default function Workspace() {
                 <p className="eyebrow">Inspection</p>
                 <h2>{selectedDocument.filename}</h2>
               </div>
-              <button className="plain-button" onClick={() => setSelectedDocument(undefined)}>
+              <button type="button" className="plain-button" onClick={() => setSelectedDocument(undefined)}>
                 <X size={16} />
               </button>
             </div>
+            {selectedDocument.status !== "stored" && selectedDocument.status !== "failed" && selectedDocument.status !== "stored_partial" && (
+              <div className="processing-panel">
+                <div className="processing-copy">
+                  <span>Partitioning</span>
+                  <strong>{selectedProgress}%</strong>
+                </div>
+                <div className="status-track">
+                  <div className="status-fill" style={{ width: `${selectedProgress}%` }} />
+                </div>
+                <small>
+                  {Math.max(0, Math.ceil((100 - selectedProgress) / 12))}s remaining
+                </small>
+              </div>
+            )}
             {selectedDocument.has_low_confidence_content && (
               <div className="notice">Partial extraction: review marked elements before relying on them.</div>
             )}
@@ -255,10 +609,10 @@ export default function Workspace() {
       <section className="chat glass">
         <header>
           <div>
-            <p className="eyebrow">Demo workspace</p>
+            <p className="eyebrow">Workspace</p>
             <h1>Ask your library</h1>
           </div>
-          <button onClick={startConversation} className="new-chat">
+          <button type="button" onClick={() => void startConversation()} className="new-chat">
             <MessageSquarePlus size={17} /> New chat
           </button>
         </header>
@@ -268,8 +622,8 @@ export default function Workspace() {
               <Bot size={26} />
             </div>
             <h2>Start with a question</h2>
-            <p>AllSlate finds the relevant material in your project and keeps every answer tied to its source.</p>
-            <button onClick={startConversation} className="primary">
+            <p>AllSlate finds the relevant material in your workspace and keeps every answer tied to its source.</p>
+            <button type="button" onClick={() => void startConversation()} className="primary">
               <Plus size={17} /> Start a conversation
             </button>
           </TiltCard>
@@ -286,7 +640,7 @@ export default function Workspace() {
                   {message.citations.length > 0 && (
                     <div className="citations">
                       {message.citations.map((citation, index) => (
-                        <button onClick={() => openDocument(citation.document_id)} key={`${citation.document_id}-${index}`}>
+                        <button type="button" onClick={() => void openDocument(citation.document_id)} key={`${citation.document_id}-${index}`}>
                           <FileText size={14} />
                           {citation.document_id}
                           {citation.page_number ? ` · p.${citation.page_number}` : ""}
@@ -303,14 +657,26 @@ export default function Workspace() {
                 </div>
               )}
             </div>
-            <form onSubmit={submit} className="composer">
+            <form
+              onSubmit={(event) => {
+                event.preventDefault();
+                void submitQuestion();
+              }}
+              className="composer"
+            >
               <textarea
                 value={question}
                 onChange={(event) => setQuestion(event.target.value)}
+                onKeyDown={(event: KeyboardEvent<HTMLTextAreaElement>) => {
+                  if (event.key === "Enter" && !event.metaKey && !event.ctrlKey && !event.altKey) {
+                    event.preventDefault();
+                    void submitQuestion();
+                  }
+                }}
                 placeholder="Ask a question about your documents..."
                 rows={2}
               />
-              <button className="send" aria-label="Send question" disabled={!question.trim() || Boolean(phase)}>
+              <button type="submit" className="send" aria-label="Send question" disabled={!question.trim() || Boolean(phase)}>
                 <Send size={18} />
               </button>
             </form>
@@ -318,12 +684,27 @@ export default function Workspace() {
         )}
       </section>
 
-      <aside className={settingsOpen ? "settings-panel glass open" : "settings-panel glass"}>
-        <button className="settings-toggle" title="Toggle settings" onClick={() => setSettingsOpen((value) => !value)}>
+      <aside
+        className={settingsOpen ? "settings-panel glass open" : "settings-panel glass"}
+        style={settingsOpen ? { width: `${settingsPanelWidth}px` } : { width: "72px" }}
+      >
+        <button type="button" className="settings-toggle" title="Toggle settings" onClick={() => setSettingsOpen((value) => !value)}>
           <PanelRightOpen size={18} />
         </button>
         {settingsOpen && (
           <div className="settings-content">
+            <div className="settings-slider-wrap">
+              <span>Adjust width</span>
+              <input
+                type="range"
+                min="180"
+                max="390"
+                step="10"
+                aria-label="Adjust settings panel width"
+                value={settingsPanelWidth}
+                onChange={(event) => setSettingsPanelWidth(Number(event.target.value))}
+              />
+            </div>
             <p className="eyebrow">Conversation</p>
             <h2>Answer settings</h2>
             <label className="switch-row">
@@ -335,7 +716,7 @@ export default function Workspace() {
                 type="checkbox"
                 checked={settings.web_search_enabled}
                 disabled={!conversationId}
-                onChange={(event) => updateSettings({ web_search_enabled: event.target.checked })}
+                onChange={(event) => void updateSettings({ web_search_enabled: event.target.checked })}
               />
             </label>
             <fieldset disabled={!conversationId}>
@@ -344,7 +725,7 @@ export default function Workspace() {
                 {RESPONSE_STYLES.map((level) => (
                   <button
                     type="button"
-                    onClick={() => updateSettings({ creativity_level: level })}
+                    onClick={() => void updateSettings({ creativity_level: level })}
                     className={settings.creativity_level === level ? "active" : ""}
                     key={level}
                   >
@@ -361,7 +742,7 @@ export default function Workspace() {
                 max="20"
                 value={settings.retrieval_top_k}
                 disabled={!conversationId}
-                onChange={(event) => updateSettings({ retrieval_top_k: Number(event.target.value) })}
+                onChange={(event) => void updateSettings({ retrieval_top_k: Number(event.target.value) })}
               />
             </label>
             <fieldset disabled={!conversationId}>
@@ -384,7 +765,7 @@ export default function Workspace() {
       {error && (
         <div role="alert" className="toast">
           {error}
-          <button onClick={() => setError("")}>
+          <button type="button" onClick={() => setError("")}>
             <X size={15} />
           </button>
         </div>

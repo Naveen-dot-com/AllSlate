@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List
 from uuid import uuid4
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException, UploadFile
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Response, UploadFile
 
 from backend.app.models.document import Document, ProcessingStatus
 from backend.app.services.document_status import document_detail_fields
@@ -41,7 +41,7 @@ async def upload_document(project_id: str, file: UploadFile, background_tasks: B
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     content = await file.read()
-    text = content.decode("utf-8", errors="ignore") if suffix in {".txt", ".md"} else ""
+    text = service.extract_text(file.filename or "", content)
     timestamp = datetime.now(timezone.utc).isoformat()
     document = Document(
         document_id=str(uuid4()),
@@ -53,9 +53,38 @@ async def upload_document(project_id: str, file: UploadFile, background_tasks: B
         updated_at=timestamp,
     )
     document_store.add(document)
+    document_store.store_file(document.document_id, content)
     document_store.update_status(document, ProcessingStatus.QUEUED)
     background_tasks.add_task(document_store.process, document, text)
     return _serialize_document(document)
+
+
+@router.get("/{project_id}/documents/{document_id}/file")
+async def get_document_file(project_id: str, document_id: str) -> Response:
+    document = _get_document(project_id, document_id)
+    file_bytes = document_store.get_file(project_id, document_id)
+    if file_bytes is None:
+        raise HTTPException(status_code=404, detail="Document file not found.")
+
+    extension = document.file_type.lower()
+    mime_map = {
+        "pdf": "application/pdf",
+        "png": "image/png",
+        "jpg": "image/jpeg",
+        "jpeg": "image/jpeg",
+        "txt": "text/plain",
+        "md": "text/markdown",
+        "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    }
+    media_type = mime_map.get(extension, "application/octet-stream")
+    return Response(content=file_bytes, media_type=media_type, headers={"Content-Disposition": f'inline; filename="{document.filename}"'})
+
+
+@router.delete("/{project_id}/documents/{document_id}")
+async def delete_document(project_id: str, document_id: str) -> Dict[str, Any]:
+    if not document_store.delete(project_id, document_id):
+        raise HTTPException(status_code=404, detail="Document not found.")
+    return {"deleted": True, "document_id": document_id}
 
 
 @router.get("/{project_id}/documents")
