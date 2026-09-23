@@ -14,6 +14,7 @@ from backend.app.rag.retriever import RetrievedChunk
 from backend.app.services.conversation_service import ConversationService
 from backend.app.services.document_store import document_store
 from backend.app.services.message_service import MessageService
+from backend.app.services.providers import get_gemini_call
 from backend.app.api.routes.conversation_settings import get_settings_service
 
 router = APIRouter(prefix="/api/v1/projects", tags=["chat"])
@@ -26,7 +27,7 @@ def _local_answer(prompt: str) -> str:
     return f"Based on your processed documents:\n\n{source}"
 
 
-_graph = RagChatGraph(generator=AnswerGenerator(llm_call=_local_answer))
+_graph = RagChatGraph(generator=AnswerGenerator(llm_call=get_gemini_call() or _local_answer))
 
 
 class CreateConversationRequest(BaseModel):

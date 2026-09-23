@@ -11,8 +11,10 @@ from backend.app.api.routes import (
     documents_router,
     status_stream_router,
 )
+from backend.app.services.providers import get_supabase_client
 
 app = FastAPI(title="Allslate API")
+app.state.supabase = get_supabase_client()
 
 cors_origins = [origin.strip() for origin in os.getenv("CORS_ORIGINS", "http://127.0.0.1:3000,http://localhost:3000").split(",") if origin.strip()]
 

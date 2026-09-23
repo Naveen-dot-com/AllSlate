@@ -2,6 +2,18 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
+from pathlib import Path
+
+try:
+    from dotenv import load_dotenv
+except ImportError:  # pragma: no cover - optional dependency fallback
+    load_dotenv = None
+
+project_root = Path(__file__).resolve().parents[2]
+backend_dir = project_root / "backend"
+for env_path in (project_root / ".env", backend_dir / ".env"):
+    if env_path.exists() and load_dotenv is not None:
+        load_dotenv(env_path)
 
 
 @dataclass(frozen=True)

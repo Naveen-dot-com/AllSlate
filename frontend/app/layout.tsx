@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { WebGLBackground } from "@/components/webgl-background";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -24,7 +25,10 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
       </head>
-      <body>{children}</body>
+      <body>
+        <WebGLBackground />
+        {children}
+      </body>
     </html>
   );
 }
