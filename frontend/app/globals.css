@@ -123,12 +123,14 @@ h2 { font-size: 19px; }
 
 .workspace {
   --settings-column-width: 330px;
+  --rail-width: 240px;
+  --documents-width: 340px;
   position: relative;
   z-index: 1;
   min-height: 100vh;
   display: grid;
-  grid-template-columns: 240px minmax(0, 320px) minmax(0, 1fr) var(--settings-column-width);
-  gap: 14px;
+  grid-template-columns: var(--rail-width) 12px var(--documents-width) 12px minmax(0, 1fr) 12px var(--settings-column-width);
+  gap: 0;
   padding: 14px;
   width: 100%;
   max-width: 100%;
@@ -143,6 +145,34 @@ h2 { font-size: 19px; }
   border-radius: 20px;
   overflow: hidden auto;
   min-width: 0;
+}
+
+.column-divider {
+  position: relative;
+  width: 12px;
+  min-width: 12px;
+  cursor: col-resize;
+  user-select: none;
+  background: transparent;
+}
+
+.column-divider::before {
+  content: "";
+  position: absolute;
+  top: 12px;
+  bottom: 12px;
+  left: 50%;
+  width: 2px;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.1), rgba(20,30,40,0.22), rgba(255,255,255,0.1));
+  box-shadow: 0 0 0 1px rgba(20,30,40,0.04);
+}
+
+.column-divider:hover::before,
+.column-divider:focus-visible::before {
+  background: linear-gradient(180deg, rgba(15,143,122,0.9), rgba(15,143,122,0.4), rgba(15,143,122,0.9));
+  box-shadow: 0 0 0 1px rgba(15,143,122,0.25);
 }
 
 .rail { color: var(--ink); padding: 24px 14px; display: flex; flex-direction: column; gap: 24px; }
@@ -425,22 +455,6 @@ header { display: flex; align-items: center; justify-content: space-between; gap
   gap: 20px;
   opacity: 1;
   transition: opacity 0.3s ease;
-}
-.settings-slider-wrap {
-  display: grid;
-  gap: 6px;
-  margin-bottom: 4px;
-}
-.settings-slider-wrap span {
-  font: 600 10px/1.2 'DM Mono', monospace;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  color: var(--muted);
-}
-.settings-slider-wrap input[type="range"] {
-  width: 100%;
-  accent-color: var(--accent);
-  cursor: col-resize;
 }
 .settings-panel:not(.open) .settings-content { display: none; }
 .switch-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }

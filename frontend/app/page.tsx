@@ -1,6 +1,6 @@
 "use client";
 
-import { ChangeEvent, KeyboardEvent, useEffect, useMemo, useState } from "react";
+import { ChangeEvent, KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
 import {
   Bot,
   Check,
@@ -116,6 +116,9 @@ export default function Workspace() {
   const [elements, setElements] = useState<ElementItem[]>([]);
   const [settingsOpen, setSettingsOpen] = useState(true);
   const [settingsPanelWidth, setSettingsPanelWidth] = useState(330);
+  const [railWidth, setRailWidth] = useState(240);
+  const [documentsWidth, setDocumentsWidth] = useState(340);
+  const resizeStartRef = useRef<{ type: "rail" | "documents" | "settings"; startX: number; startWidth: number } | null>(null);
   const [question, setQuestion] = useState("");
   const [phase, setPhase] = useState("");
   const [error, setError] = useState("");
@@ -415,13 +418,56 @@ export default function Workspace() {
     ? progressByDocument[selectedDocument.id] ?? getProgressForStatus(selectedDocument.status).progress
     : 0;
 
+  useEffect(() => {
+    const handleMouseMove = (event: MouseEvent) => {
+      if (!resizeStartRef.current) return;
+      const { type, startX, startWidth } = resizeStartRef.current;
+      const delta = event.clientX - startX;
+
+      if (type === "rail") {
+        setRailWidth(Math.min(320, Math.max(180, startWidth + delta)));
+      }
+      if (type === "documents") {
+        setDocumentsWidth(Math.min(520, Math.max(260, startWidth + delta)));
+      }
+      if (type === "settings") {
+        setSettingsPanelWidth(Math.min(420, Math.max(200, startWidth + delta)));
+      }
+    };
+
+    const handleMouseUp = () => {
+      resizeStartRef.current = null;
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, []);
+
+  const beginResize = (type: "rail" | "documents" | "settings", event: React.MouseEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    const startWidth = type === "rail" ? railWidth : type === "documents" ? documentsWidth : settingsPanelWidth;
+    resizeStartRef.current = { type, startX: event.clientX, startWidth };
+  };
+
   return (
-    <main className={settingsOpen ? "workspace" : "workspace settings-collapsed"}>
+    <main
+      className={settingsOpen ? "workspace" : "workspace settings-collapsed"}
+      style={{
+        ["--rail-width" as string]: `${railWidth}px`,
+        ["--documents-width" as string]: `${documentsWidth}px`,
+        ["--settings-column-width" as string]: `${settingsOpen ? settingsPanelWidth : 72}px`,
+      }}
+    >
       <div className="orb orb-a" aria-hidden="true" />
       <div className="orb orb-b" aria-hidden="true" />
       <div className="orb orb-c" aria-hidden="true" />
 
-      <aside className="rail glass">
+      <aside className="rail glass" style={{ width: `${railWidth}px` }}>
         <div className="brand">
           <Sparkles size={18} /> AllSlate
         </div>
@@ -507,7 +553,9 @@ export default function Workspace() {
         </div>
       </aside>
 
-      <section className="documents glass">
+      <div className="column-divider rail-divider" onMouseDown={(event) => beginResize("rail", event)} aria-label="Resize workspace column" role="separator" tabIndex={0} />
+
+      <section className="documents glass" style={{ width: `${documentsWidth}px` }}>
         <header>
           <div>
             <p className="eyebrow">Project library</p>
@@ -606,6 +654,8 @@ export default function Workspace() {
         )}
       </section>
 
+      <div className="column-divider documents-divider" onMouseDown={(event) => beginResize("documents", event)} aria-label="Resize library column" role="separator" tabIndex={0} />
+
       <section className="chat glass">
         <header>
           <div>
@@ -684,27 +734,17 @@ export default function Workspace() {
         )}
       </section>
 
+      <div className="column-divider settings-divider" onMouseDown={(event) => beginResize("settings", event)} aria-label="Resize settings column" role="separator" tabIndex={0} />
+
       <aside
         className={settingsOpen ? "settings-panel glass open" : "settings-panel glass"}
-        style={settingsOpen ? { width: `${settingsPanelWidth}px` } : { width: "72px" }}
+        style={{ width: `${settingsOpen ? settingsPanelWidth : 72}px` }}
       >
         <button type="button" className="settings-toggle" title="Toggle settings" onClick={() => setSettingsOpen((value) => !value)}>
           <PanelRightOpen size={18} />
         </button>
         {settingsOpen && (
           <div className="settings-content">
-            <div className="settings-slider-wrap">
-              <span>Adjust width</span>
-              <input
-                type="range"
-                min="180"
-                max="390"
-                step="10"
-                aria-label="Adjust settings panel width"
-                value={settingsPanelWidth}
-                onChange={(event) => setSettingsPanelWidth(Number(event.target.value))}
-              />
-            </div>
             <p className="eyebrow">Conversation</p>
             <h2>Answer settings</h2>
             <label className="switch-row">
