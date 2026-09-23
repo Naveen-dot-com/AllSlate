@@ -4,7 +4,7 @@ import path from "node:path";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 /** @type {import('next').NextConfig} */
-const apiBaseUrl = process.env.ALLSLATE_API_URL ?? process.env.NEXT_PUBLIC_ALLSLATE_API_URL ?? "http://127.0.0.1:8000";
+const apiBaseUrl = process.env.ALLSLATE_API_URL ?? process.env.NEXT_PUBLIC_ALLSLATE_API_URL;
 
 const nextConfig = {
   reactStrictMode: true,
@@ -13,6 +13,10 @@ const nextConfig = {
     root: __dirname,
   },
   async rewrites() {
+    if (!apiBaseUrl) {
+      return [];
+    }
+
     return [
       {
         source: "/api/:path*",
